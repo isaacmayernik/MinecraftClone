@@ -1,1 +1,3 @@
 # minecraft_clone
+
+PUT THIS ON YOUR DESKTOP FOR IT TO WORK
