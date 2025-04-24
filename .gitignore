@@ -1,0 +1,21 @@
+# Ignore build directories in ANY subfolder
+**/build/
+**/out/
+**/bin/
+**/Debug/
+**/Release/
+**/x64/
+**/include/glm
+
+# Visual Studio files (applies everywhere)
+**/.vs/
+**/*.sln
+**/*.vcxproj*
+**/*.suo
+
+# Executables (anywhere in repo)
+**/*.exe
+
+# System files (global)
+.DS_Store
+Thumbs.db
