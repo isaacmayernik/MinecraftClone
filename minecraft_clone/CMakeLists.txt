@@ -1,27 +1,22 @@
 cmake_minimum_required(VERSION 3.10)
-set(CMAKE_GENERATOR_TOOLSET "v143" CACHE STRING "Force VS 2022 toolchain")
-
-project(minecraft_clone)
+project(minecraft_clone) 
 
 # Set paths
-set(GLFW_INCLUDE_DIR "include/GLFW")
-set(GLFW_LIBRARY "lib/glfw3.lib")
-set(GLEW_INCLUDE_DIR "include/GL")
-set(GLEW_LIBRARY "lib/glew32.lib")
+set(GLFW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
+set(GLFW_LIBRARY "${CMAKE_SOURCE_DIR}/lib/glfw3.lib")
+set(GLEW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include/GL")
+set(GLEW_LIBRARY "${CMAKE_SOURCE_DIR}/lib/glew32.lib")
 
-# Add all source files
-add_executable(minecraft_clone
-    src/main.c
-    src/camera.c
-)
+# Add executable
+add_executable(minecraft_clone src/main.c) 
 
 # Include directories
 target_include_directories(minecraft_clone PRIVATE
-    include
-    src
     ${GLFW_INCLUDE_DIR}
     ${GLEW_INCLUDE_DIR}
+    ${CMAKE_SOURCE_DIR}/include
 )
+add_definitions(-DCGLM_HEADER_ONLY)
 
 # Link libraries
 target_link_libraries(minecraft_clone
@@ -30,8 +25,9 @@ target_link_libraries(minecraft_clone
     opengl32.lib
 )
 
+# Copy DLL to build folder
 add_custom_command(TARGET minecraft_clone POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
-    "glew32.dll"
+    "${CMAKE_SOURCE_DIR}/glew32.dll"
     "$<TARGET_FILE_DIR:minecraft_clone>"
 )
