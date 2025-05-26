@@ -8,7 +8,8 @@ set(GLEW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include/GL")
 set(GLEW_LIBRARY "${CMAKE_SOURCE_DIR}/lib/glew32.lib")
 
 # Add executable
-add_executable(minecraft_clone src/main.c) 
+file(GLOB SOURCES "src/*.c")
+add_executable(minecraft_clone ${SOURCES})
 
 # Include directories
 target_include_directories(minecraft_clone PRIVATE

@@ -5,33 +5,36 @@
 #include <stdint.h>
 #include <math.h>
 #include "cglm/cglm.h"
+#include "camera.h"
+#include <stdbool.h>
 
-// Camera structure
-typedef struct
+// Global vars
+Camera camera;
+float lastX = 400, lastY = 300;
+bool firstMouse = true;
+
+// Mouse callback
+void mouse_callback(GLFWwindow *window, double xpos, double ypos)
 {
-    vec3 pos;
-    vec3 front;
-    vec3 up;
-    float yaw;
-    float pitch;
-    float moveSpeed;
-} Camera;
+    if (firstMouse)
+    {
+        lastX = (float)xpos;
+        lastY = (float)ypos;
+        firstMouse = false;
+    }
 
-Camera camera = {
-    .pos = {0.0f, 0.0f, 3.0f},
-    .front = {0.0f, 0.0f, -1.0f},
-    .up = {0.0f, 1.0, 0.0f},
-    .yaw = -90.0f,
-    .pitch = 0.0f,
-    .moveSpeed = 2.5f};
+    float xoffset = (float)(xpos - lastX);
+    float yoffset = (float)(lastY - ypos); // Reversed since y-coordinates range from bottom to top
+    lastX = (float)xpos;
+    lastY = (float)ypos;
 
-void updateCameraVectors()
+    processMouseMovement(&camera, xoffset, yoffset, GL_TRUE);
+}
+
+// Scroll callback
+void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 {
-    vec3 front;
-    front[0] = cos(glm_rad(camera.yaw)) * cos(glm_rad(camera.pitch));
-    front[1] = sin(glm_rad(camera.pitch));
-    front[2] = sin(glm_rad(camera.yaw)) * cos(glm_rad(camera.pitch));
-    glm_normalize_to(front, camera.front);
+    processMouseScroll(&camera, (float)yoffset);
 }
 
 // Function to read shader file
@@ -84,33 +87,6 @@ char *readShaderFile(const char *filePath)
     return buffer;
 }
 
-void processInput(GLFWwindow *window, float deltaTime)
-{
-    float velocity = camera.moveSpeed * deltaTime;
-
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, 1);
-
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        glm_vec3_muladds(camera.front, velocity, camera.pos);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        glm_vec3_muladds(camera.front, -velocity, camera.pos);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    {
-        vec3 right;
-        glm_cross(camera.front, camera.up, right);
-        glm_normalize(right);
-        glm_vec3_muladds(right, -velocity, camera.pos);
-    }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-    {
-        vec3 right;
-        glm_cross(camera.front, camera.up, right);
-        glm_normalize(right);
-        glm_vec3_muladds(right, velocity, camera.pos);
-    }
-}
-
 int main()
 {
     // Initialize GLFW
@@ -133,7 +109,11 @@ int main()
         glfwTerminate();
         return -1;
     }
+
     glfwMakeContextCurrent(window);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // Initialize GLEW
     glewExperimental = GL_TRUE;
@@ -145,6 +125,11 @@ int main()
     }
 
     glEnable(GL_DEPTH_TEST);
+
+    // Initialize camera
+    vec3 cameraPos = {0.0f, 0.0f, 3.0f};
+    vec3 cameraUp = {0.0f, 1.0f, 0.0f};
+    initCamera(&camera, cameraPos, cameraUp, -90.0f, 0.0f);
 
     // Load shaders
     char *vertexShaderSource = readShaderFile("../shaders/shader.vert");
@@ -236,7 +221,7 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // Set vertex attributes
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
 
     float deltaTime = 0.0f;
@@ -250,8 +235,9 @@ int main()
         lastFrame = currentFrame;
 
         // Input
-        processInput(window, deltaTime);
-        updateCameraVectors();
+        processKeyboard(&camera, window, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) // pressing esc closes
+            glfwSetWindowShouldClose(window, true);
 
         // Render
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -259,21 +245,16 @@ int main()
 
         // Create transformations
         mat4 projection, view, model;
-        glm_perspective(glm_rad(45.0f), 800.0f / 600.0f, 0.1f, 100.0f, projection);
-
-        vec3 center;
-        glm_vec3_add(camera.pos, camera.front, center);
-        glm_lookat(camera.pos, center, camera.up, view);
-
+        glm_perspective(glm_rad(camera.fov), 800.0f / 600.0f, 0.1f, 100.0f, projection);
+        getViewMatrix(&camera, &view);
         glm_mat4_identity(model);
 
-        // Get uniform locations
+        // Get uniform locations and pass matrices (keep this the same)
         glUseProgram(shaderProgram);
         unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
         unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
         unsigned int projLoc = glGetUniformLocation(shaderProgram, "projection");
 
-        // Pass matrices to shader
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (float *)model);
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (float *)view);
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, (float *)projection);
